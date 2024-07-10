@@ -9,3 +9,4 @@ fuzzywuzzy
 langchain
 requests
 streamlit_chat
+langchain-community
