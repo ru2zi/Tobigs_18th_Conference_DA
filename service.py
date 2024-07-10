@@ -9,7 +9,7 @@ from streamlit_chat import message
 import uuid
 import os
 
-from utils import point_to_address, address_to_point, extract_location, calculate_epdo, add_markers, get_hexagon_info, visualize_location
+from utils import point_to_address, address_to_point, extract_location, calculate_epdo, add_markers, visualize_location
 
 haengjeongdong_roadtype = pd.read_csv('./data_set/행정동_도로유형_주소.csv')
 final_df = pd.read_csv('./data_set/final.csv')
