@@ -1,15 +1,27 @@
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
+import folium
 from streamlit_folium import folium_static
 from langchain import OpenAI, LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.memory import ConversationBufferWindowMemory
+from langchain.memory import ConversationBufferMemory
+from fuzzywuzzy import process
 from streamlit_chat import message
 import uuid
+from langchain.memory import ConversationBufferWindowMemory
+import ast
 import os
+from dotenv import load_dotenv
+from utils import point_to_address, address_to_point, extract_location, calculate_epdo, add_markers, visualize_location, create_base_map
 
-from utils import point_to_address, address_to_point, extract_location, calculate_epdo, add_markers, visualize_location
+load_dotenv()
+
+NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
+NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
+GEOCODE_CLIENT_ID = os.getenv("GEOCODE_CLIENT_ID")
+GEOCODE_CLIENT_SECRET = os.getenv("GEOCODE_CLIENT_SECRET")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 haengjeongdong_roadtype = pd.read_csv('./data_set/행정동_도로유형_주소.csv')
 final_df = pd.read_csv('./data_set/final.csv')
@@ -20,7 +32,6 @@ merged_df['center_address'] = merged_df['center_address'].combine_first(merged_d
 merged_df.drop(columns=['주소'], inplace=True)
 
 # LangChain 설정
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm = OpenAI(api_key=OPENAI_API_KEY)
 
 template = """
@@ -42,8 +53,8 @@ memory = ConversationBufferWindowMemory(k=0, return_messages=False)
 conversation = LLMChain(llm=llm, prompt=prompt, memory=memory, output_key="output")
 
 # Streamlit UI 설정
-st.title('서울시 도로명 주소 지도')
-st.write("서울시의 특정 장소에 대한 궁금한 점을 물어보세요.")
+st.title('경로당 아이들')
+st.write("서울시의 특정 장소에 대해 검색해보고 해당 지역의 위험 구간을 확인해보세요.")
 
 if 'conversation' not in st.session_state:
     st.session_state.conversation = []
@@ -84,8 +95,22 @@ if question:
                             visualize_location(row, merged_df, show_epdo=False)
                             break
                     else:
-                        st.session_state.conversation.append({"role": "AI", "content": "해당 지명을 찾을 수 없습니다. 다른 지명을 입력해 주세요.", "type": "text"})
+                        row = {
+                            'center_address': location_name,
+                            'x': location['lng'],
+                            'y': location['lat'],
+                            'neighbours_centroids': '[]'
+                        }
+                        visualize_location(row, pd.DataFrame([row]), show_epdo=False)
                 else:
+                    row = {
+                        'center_address': location_name,
+                        'x': location['lng'],
+                        'y': location['lat'],
+                        'neighbours_centroids': '[]'
+                    }
+                    base_map = create_base_map(location['lat'], location['lng'], zoom_start=15, radius_km=1)
+                    st.session_state.conversation.append({"role": "AI", "content": base_map, "type": "map"})
                     st.session_state.conversation.append({"role": "AI", "content": "해당 지명을 찾을 수 없습니다. 다른 지명을 입력해 주세요.", "type": "text"})
         else:
             st.session_state.conversation.append({"role": "AI", "content": "지명을 추출할 수 없습니다. 다시 시도해 주세요.", "type": "text"})
