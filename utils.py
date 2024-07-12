@@ -1,17 +1,14 @@
-import requests
-import re
+# utils.py
 import os
-import ast
-import folium
+import re
+import requests
 import pandas as pd
-from dotenv import load_dotenv
-import streamlit as st
+import ast
 from geopy.distance import geodesic
+from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv()
 
-# Get API keys from .env file
 NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 GEOCODE_CLIENT_ID = os.getenv("GEOCODE_CLIENT_ID")
@@ -40,7 +37,6 @@ def point_to_address(latitude, longitude):
                 address = f"{area1} {area2} {area3} {number1}-{number2}" if number2 else f"{area1} {area2} {area3} {number1}"
     return road_address if road_address else address
 
-# Function to get coordinates from address
 def address_to_point(address):
     url = f'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query={address}'
     headers = {
@@ -122,15 +118,28 @@ def create_base_map(center_lat=None, center_lng=None, zoom_start=12, radius_km=N
 
     return m
 
-def visualize_location(row, filtered_df, show_epdo=True):
-    base_map = create_base_map(row['y'], row['x'], zoom_start=15, radius_km=1)
-    st.session_state.conversation.append({"role": "AI", "content": f"{row['center_address']}에 대한 정보를 시각화합니다...", "type": "text"})
-    folium.Marker([row['y'], row['x']], popup=row['center_address']).add_to(base_map)
-    if show_epdo and 'EPDO_cnt' in row:
-        calculate_epdo(filtered_df)
-        filtered_location_df = filtered_df[filtered_df['center_address'] == row['center_address']]
-        if not filtered_location_df.empty:
-            add_markers(base_map, filtered_location_df)
-        else:
-            st.session_state.conversation.append({"role": "AI", "content": "해당 지점에 대한 구체적인 위험 정보를 찾을 수 없습니다.", "type": "text"})
-    st.session_state.conversation.append({"role": "AI", "content": base_map, "type": "map"})
+def get_location_info(row):
+    info = {
+        '사망자 수': row['dth_dnv_cnt'],
+        '중상자 수': row['se_dnv_cnt'],
+        '경상자 수': row['sl_dnv_cnt'],
+        '신고된 부상자 수': row['wnd_dnv_cnt'],
+        '버스 정류장 수': row['bus_station_cnt'],
+        '교통 신호등 수': row['traffic_cnt'],
+        '유흥 시설 수': row['pleasure_cnt'],
+        '경찰서 수': row['seoul_police_cnt'],
+        '공원 수': row['park_cnt'],
+        '교차로 수': row['crossroad_cnt'],
+        '도로(10m 이하) 수': row['도로10이하_cnt'],
+        '도로(10m ~ 20m) 수': row['도로10_20_cnt'],
+        '도로(20m ~ 30m) 수': row['도로20_30_cnt'],
+        '도로(30m 이상) 수': row['도로30이상_cnt'],
+        '노인 보호 구역 수': row['silver_cnt'],
+        '횡단보도 수': row['crosswalk_cnt'],
+        '도로 유형': row['도로종류'],
+        '도로 기능': row['도로기능'],
+        '도로 크기': row['도로규모'],
+        '도로 폭': row['도로폭']
+    }
+    info_text = "\n".join([f"{key}: {value}" for key, value in info.items()])
+    return info_text
